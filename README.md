@@ -2,30 +2,19 @@
 
 ### What Can We Do? 🚀
 
-Based on the demo functionalities, our project showcases the following capabilities:
+Our project leverages advanced models and methodologies to achieve the following capabilities:
 
 1. **Real-Time Text Analysis** 📝  
-   - Provides an interactive text analysis tool capable of quickly determining whether the input text is human-written or AI-generated.
-   - Utilizes lightweight browser-side heuristics to simulate the final interaction experience.
+   - Utilizes the CSPF-Net (Context-aware Stylometric–Probabilistic Fusion Network) to integrate stylometric patterns, probabilistic signals, and token cohesiveness for sentence-level AI probability estimation.
+   - Aggregates sentence-level probabilities into document-level AI contribution ratios, enabling robust detection of AI-generated text even under adversarial conditions.
 
 2. **Multimodal Forensic Framework** 🔍  
-   - Supports multimodal inputs (text, speech, music, images) with foundational forensic analysis implemented on the text side.
-   - Future extensions can connect to a Python API for more sophisticated backend analysis.
+   - Employs a lightweight CNN trained on log-Mel spectrograms for AI-generated speech detection, leveraging spectral descriptors and MFCC features for robust classification.
+   - Implements SpecTTTra (Spectral-Temporal Transformer) for AI-generated music detection, capturing long-range dependencies and cross-dimensional interactions through temporal and spectral slicing.
+   - Adopts an EfficientNet-B7 backbone with dual-attention mechanisms for GAN-based image forensics, and a ViT-based Community-Forensics framework for DiT-generated image detection, ensuring strong generalization and interpretability.
 
 3. **Educational and Demonstration Features** 🎓  
-   - Includes the "Human or Machine?" classroom demo game, which uses curated cases to help users understand the characteristics of AI-generated content.
-   - Game cases highlight differences in style, detail, and consistency between human and AI text.
+   - Provides insights into the characteristics of AI-generated content across modalities, emphasizing generalization, interpretability, and computational feasibility.
+   - Demonstrates the importance of aligning diverse detection paths to address evolving generative models effectively.
 
-4. **User-Friendly Interface Design** 💻  
-   - Features a modern frontend design supporting dynamic interactions and real-time feedback.
-   - The interface displays model status, device support, and demo mode, enabling users to quickly grasp system capabilities.
-
-These features demonstrate the potential of our project in the field of multimodal AI forensics, laying a solid foundation for future expansions and real-world applications.
-
-### Abstract 📜
-This project aims to propose a unified multimodal AI forensics framework that integrates a context-aware text detection model, temporal-spectral audio detection models, and complementary CNN–ViT forensics for GAN- and DiT-generated image forensics to robustly identify AI-generated content across text, speech, music, and images under adversarial and cross-domain conditions, addressing limitations of existing single-modality and artifact-dependent approaches while emphasizing generalization, interpretability, and computational feasibility.
-
-### Keywords 🗝️
-- AI-Generated Content Detection 🧠
-- Multimodal AI Forensics 🎶🖼️
-- Trustworthy AI ✅
+These capabilities highlight our commitment to advancing trustworthy AI through robust multimodal forensics.
