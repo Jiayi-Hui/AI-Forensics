@@ -1,0 +1,45 @@
+{
+  "model_repo": "OwensLab/commfor-model-224",
+  "data_dir": "/root/AI-generated-image-detection/.hf_cache/hub/datasets--OwensLab--CommunityForensics-Eval/snapshots/7d4a74a88d2cac93b513c0853bf92c260eaceea0/data",
+  "val_ratio": 0.2,
+  "seed": 42,
+  "n_samples": 21275,
+  "n_val": 4255,
+  "n_test": 17020,
+  "temperature": 2.1098015308380127,
+  "threshold_raw": 0.08,
+  "threshold_calibrated": 0.24000000000000002,
+  "test_metrics_baseline_t05": {
+    "accuracy": 0.8770857814336075,
+    "precision": 0.9550304003670987,
+    "recall": 0.830423940149626,
+    "f1": 0.8883790417244691,
+    "roc_auc": 0.9607894702129594,
+    "avg_precision": 0.9749545470804127,
+    "brier": 0.09645839271716461,
+    "ece10": 0.07787606378714129,
+    "threshold": 0.5
+  },
+  "test_metrics_threshold_only": {
+    "accuracy": 0.8841950646298472,
+    "precision": 0.8872860165416426,
+    "recall": 0.9202992518703242,
+    "f1": 0.9034911619252803,
+    "roc_auc": 0.9607894702129594,
+    "avg_precision": 0.9749545470804127,
+    "brier": 0.09645839271716461,
+    "ece10": 0.07787606378714129,
+    "threshold": 0.08
+  },
+  "test_metrics_threshold_plus_calibration": {
+    "accuracy": 0.8843713278495887,
+    "precision": 0.8879152623976889,
+    "recall": 0.9198004987531172,
+    "f1": 0.9035766780989711,
+    "roc_auc": 0.9607894773430967,
+    "avg_precision": 0.9749545754529645,
+    "brier": 0.08621656748570462,
+    "ece10": 0.06362112051756429,
+    "threshold": 0.24000000000000002
+  }
+}

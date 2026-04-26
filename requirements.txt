@@ -1,0 +1,27 @@
+# Core deep learning stack
+torch
+torchvision
+torchaudio
+
+# Data and image processing
+numpy
+pandas
+pyarrow
+pillow
+opencv-python
+
+# Evaluation and calibration
+scikit-learn
+
+# Model / HF ecosystem
+timm
+datasets
+huggingface-hub
+transformers
+
+# Optional logging compatibility with Community-Forensics
+wandb
+torchmetrics
+
+# Demo app
+gradio

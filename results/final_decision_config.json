@@ -1,0 +1,10 @@
+{
+  "model_repo": "OwensLab/commfor-model-224",
+  "decision_type": "sigmoid(logit/temperature) >= threshold",
+  "temperature": 2.1098015308380127,
+  "threshold": 0.24000000000000002,
+  "fit_split": {
+    "val_ratio": 0.2,
+    "seed": 42
+  }
+}
