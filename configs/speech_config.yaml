@@ -1,0 +1,12 @@
+sample_rate: 16000
+duration_seconds: 2
+threshold: 0.3
+model_path: output/rf_enhanced_model.joblib
+
+features:
+  n_mfcc: 20
+  n_mels: 64
+
+labels:
+  real: 0
+  fake: 1
