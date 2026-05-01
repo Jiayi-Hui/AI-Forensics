@@ -15,22 +15,35 @@ from sklearn.metrics import (
     f1_score, roc_auc_score, average_precision_score,
 )
 
-COMMFOR_REPO = os.environ.get("COMMFOR_REPO", "/workspaces/Community-Forensics")
-DATA_DIR = os.environ.get(
-    "EVAL_DATA_DIR",
-    "/workspaces/AI-generated-image-detection/.hf_cache/hub/"
-    "datasets--OwensLab--CommunityForensics-Eval/snapshots/"
-    "7d4a74a88d2cac93b513c0853bf92c260eaceea0/data",
-)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DEFAULT_COMMFOR_REPO = os.path.abspath(os.path.join(PROJECT_ROOT, "..", "Community-Forensics"))
+COMMFOR_REPO = os.environ.get("COMMFOR_REPO", DEFAULT_COMMFOR_REPO)
+DATA_DIR = os.environ.get("EVAL_DATA_DIR")
 MODEL_REPO  = os.environ.get("HF_MODEL_REPO", "OwensLab/commfor-model-224")
 BATCH_SIZE  = int(os.environ.get("BATCH_SIZE_PER_GPU", 32))
 INPUT_SIZE  = 224
 DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 4
 
-sys.path.insert(0, COMMFOR_REPO)
-import models  # ViTClassifier
 
+def discover_data_dir():
+    if DATA_DIR:
+        return DATA_DIR
+    pattern = os.path.join(
+        PROJECT_ROOT,
+        ".hf_cache",
+        "hub",
+        "datasets--OwensLab--CommunityForensics-Eval",
+        "snapshots",
+        "*",
+        "data",
+    )
+    candidates = sorted(glob.glob(pattern))
+    if not candidates:
+        raise FileNotFoundError(
+            "No eval parquet data found. Set EVAL_DATA_DIR explicitly or cache the dataset under .hf_cache."
+        )
+    return candidates[-1]
 
 # ---------- dataset ----------------------------------------------------------
 
@@ -101,11 +114,15 @@ eval_transform = transforms.Compose([
 
 # ---------- main -------------------------------------------------------------
 
-def main():
-    print(f"Device: {DEVICE} | Batch: {BATCH_SIZE} | Workers: {NUM_WORKERS}")
+def build_model():
+    if not os.path.isdir(COMMFOR_REPO):
+        raise FileNotFoundError(
+            f"COMMFOR_REPO not found: {COMMFOR_REPO}. "
+            "Set COMMFOR_REPO or place Community-Forensics beside this project."
+        )
+    sys.path.insert(0, COMMFOR_REPO)
+    import models  # pylint: disable=import-error
 
-    # --- model ---
-    print(f"Loading model from {MODEL_REPO} ...")
     model = models.ViTClassifier(
         model_size="small",
         input_size=INPUT_SIZE,
@@ -115,13 +132,20 @@ def main():
         dtype=torch.float32,
     )
     model = model.from_pretrained(MODEL_REPO)
-    model = model.to(DEVICE)
-    model.eval()
+    return model.to(DEVICE).eval()
+
+def main():
+    data_dir = discover_data_dir()
+    print(f"Device: {DEVICE} | Batch: {BATCH_SIZE} | Workers: {NUM_WORKERS}")
+
+    # --- model ---
+    print(f"Loading model from {MODEL_REPO} ...")
+    model = build_model()
     print("Model loaded.")
 
     # --- data ---
-    print(f"Building dataset from {DATA_DIR} ...")
-    dataset = ParquetEvalDataset(DATA_DIR, transform=eval_transform)
+    print(f"Building dataset from {data_dir} ...")
+    dataset = ParquetEvalDataset(data_dir, transform=eval_transform)
     print(f"Dataset size: {len(dataset)} examples")
 
     loader = DataLoader(

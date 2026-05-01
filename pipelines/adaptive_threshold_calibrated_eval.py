@@ -42,7 +42,11 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
 
-COMMFOR_REPO = os.environ.get("COMMFOR_REPO", "/root/Community-Forensics")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+COMMFOR_REPO = os.environ.get(
+    "COMMFOR_REPO",
+    str((PROJECT_ROOT.parent / "Community-Forensics").resolve()),
+)
 HF_MODEL_REPO = os.environ.get("HF_MODEL_REPO", "OwensLab/commfor-model-224")
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE_PER_GPU", "32"))
 NUM_WORKERS = int(os.environ.get("NUM_WORKERS", "4"))
@@ -50,8 +54,8 @@ INPUT_SIZE = 224
 VAL_RATIO = float(os.environ.get("VAL_RATIO", "0.2"))
 SEED = int(os.environ.get("SPLIT_SEED", "42"))
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-HF_HOME = os.environ.get("HF_HOME", "/root/AI-generated-image-detection/.hf_cache")
-RESULT_DIR = Path(os.environ.get("RESULT_DIR", "/root/AI-generated-image-detection/results"))
+HF_HOME = os.environ.get("HF_HOME", str(PROJECT_ROOT / ".hf_cache"))
+RESULT_DIR = Path(os.environ.get("RESULT_DIR", str(PROJECT_ROOT / "results")))
 
 
 def _discover_data_dir() -> str:
@@ -125,6 +129,11 @@ class ParquetEvalDataset(Dataset):
 def build_model():
     import sys
 
+    if not Path(COMMFOR_REPO).exists():
+        raise FileNotFoundError(
+            f"COMMFOR_REPO not found: {COMMFOR_REPO}. "
+            "Set COMMFOR_REPO or place Community-Forensics beside this project."
+        )
     sys.path.insert(0, COMMFOR_REPO)
     import models  # pylint: disable=import-error
 
