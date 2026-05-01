@@ -222,6 +222,14 @@ The model is especially strong in detecting fake speech, with high recall.
 
 ---
 
+## Quick Demo
+
+Run the following command:
+
+python demo/demo_predict.py --audio demo/sample_real.wav
+
+---
+
 ## Key Skills Demonstrated
 
 - Audio preprocessing
