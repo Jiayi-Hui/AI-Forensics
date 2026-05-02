@@ -1,0 +1,3 @@
+[submodule "modules/text_detection"]
+	path = modules/text_detection
+	url = https://github.com/Jiayi-Hui/CSPF-Net.git
