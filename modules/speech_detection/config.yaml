@@ -1,0 +1,22 @@
+seed: 42
+
+paths:
+  fake_or_real_root: data
+  scenefake_root: data/scenefake
+  model_output: models/best_hybrid_ast.pth
+
+audio:
+  sample_rate: 16000
+  n_mels: 128
+  n_fft: 1024
+  hop_length: 512
+  max_len: 130
+
+training:
+  batch_size: 32
+  optuna_trials: 2
+  epochs_per_trial: 3
+
+model:
+  num_heads_options: [2, 4, 8]
+  hidden_dim_options: [128, 256]

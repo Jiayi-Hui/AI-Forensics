@@ -1,13 +1,12 @@
-﻿data/
+data/
+weights/
 heatmaps/
 results/
 __pycache__/
 *.zip
+*.pth
 .streamlit/
 .venv/
 .claude/
 ~$*
 
-backend/detectors/youtube_cookies.txt
-.DS_Store
-*.docx

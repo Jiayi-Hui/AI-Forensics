@@ -69,6 +69,9 @@ const videoBox = document.querySelector("#video-box");
 const frameBox = document.querySelector("#frame-box");
 const voiceBox = document.querySelector("#voice-box");
 const subtitleBox = document.querySelector("#subtitle-box");
+const heatmapCard = document.querySelector(".heatmap-card");
+const featureSignalsCard = document.querySelectorAll(".feature-card")[0];
+const verdictKicker = document.querySelector(".results-header .section-kicker");
 
 let score = 0;
 let attempts = 0;
@@ -231,6 +234,28 @@ function setMode(mode) {
   inputModes.forEach((panel) => {
     panel.classList.toggle("active", panel.dataset.panel === mode);
   });
+
+  const isText = mode === "text";
+  heatmapCard.style.display = isText ? "" : "none";
+
+  const featureHeadings = {
+    text: "Feature Signals",
+    image: "Detection Breakdown",
+    audio: "Audio Analysis",
+    video: "Multimodal Breakdown",
+  };
+  featureSignalsCard.querySelector("h4").textContent = featureHeadings[mode] || "Feature Signals";
+  featureSignalsCard.querySelector("span").textContent = isText ? "Designed for classroom explanation" : "Per-modality confidence scores";
+
+  const kickers = {
+    text: "Document Verdict",
+    image: "Image Verdict",
+    audio: "Audio Verdict",
+    video: "Video Verdict",
+  };
+  verdictKicker.textContent = kickers[mode] || "Verdict";
+
+  if (!isText) featureGrid.innerHTML = "";
 }
 
 function updateModalityBox(box, label, detail) {
@@ -257,6 +282,99 @@ function inspectVideoSource(sourceLabel) {
   updateDecompositionBox(frameBox, "Frame Track", "Queued", "Sample keyframes would be extracted and sent to the image branch for visual artifact checks.");
   updateDecompositionBox(voiceBox, "Audio Track", "Queued", "The soundtrack would be separated for speech analysis and synthetic-voice cues.");
   updateDecompositionBox(subtitleBox, "Subtitle Track", "Queued", "OCR or ASR output would be routed into the text detector for language-based forensics.");
+}
+
+// ── Backend result renderers ──────────────────────────────────────────────────
+
+function renderImageResult(data) {
+  const fakePct = Math.round(data.fake_prob * 100);
+  const realPct = Math.round(data.real_prob * 100);
+  const confPct = Math.round(data.confidence * 100);
+  const isFake = data.label === "FAKE";
+  const ringPct = isFake ? fakePct : confPct;
+  const ringColor = isFake ? "var(--bad)" : "var(--good)";
+
+  verdictTitle.textContent = isFake ? "AI-Generated Image" : "Authentic Image";
+  scoreValue.textContent = `${ringPct}%`;
+  confidenceValue.textContent = `${confPct}%`;
+  ratioValue.textContent = "—";
+  cueValue.textContent = isFake ? "Visual artifacts detected" : "No synthetic artifacts found";
+  meterFill.style.width = `${fakePct}%`;
+  scoreRing.style.background = `conic-gradient(${ringColor} 0deg, ${ringColor} ${ringPct * 3.6}deg, rgba(255,255,255,0.08) ${ringPct * 3.6}deg)`;
+  sentenceList.innerHTML = "";
+
+  featureGrid.innerHTML = "";
+  [
+    { name: "AI probability",   value: `${fakePct}%`,  detail: isFake ? "Above detection threshold (50%)" : "Below detection threshold (50%)" },
+    { name: "Real probability", value: `${realPct}%`,  detail: isFake ? "Low authenticity confidence" : "High authenticity confidence" },
+    { name: "Model",            value: "EfficientNet-B7", detail: "Fine-tuned on deepfake face dataset" },
+  ].forEach(({ name, value, detail }) => {
+    const box = document.createElement("article");
+    box.className = "feature-box";
+    box.innerHTML = `<span class="stat-label">${name}</span><strong>${value}</strong><p>${detail}</p>`;
+    featureGrid.appendChild(box);
+  });
+
+  imageBox.classList.add("active");
+  imageBox.innerHTML = `
+    <span class="stat-label">Image</span>
+    <strong style="color:${ringColor}">${data.label}</strong>
+    <p>Fake ${fakePct}% · Real ${realPct}% · Conf ${confPct}%</p>
+  `;
+}
+
+function renderAudioResult(data) {
+  const pct = Math.round(data.prob_fake * 100);
+  const isFake = data.prediction === "fake";
+  const ringColor = isFake ? "var(--bad)" : "var(--good)";
+
+  verdictTitle.textContent = isFake ? "Synthetic Audio" : "Authentic Audio";
+  scoreValue.textContent = `${pct}%`;
+  confidenceValue.textContent = data.risk_level;
+  ratioValue.textContent = "—";
+  cueValue.textContent = `Risk level: ${data.risk_level}`;
+  meterFill.style.width = `${pct}%`;
+  scoreRing.style.background = `conic-gradient(${ringColor} 0deg, ${ringColor} ${pct * 3.6}deg, rgba(255,255,255,0.08) ${pct * 3.6}deg)`;
+  sentenceList.innerHTML = "";
+
+  featureGrid.innerHTML = "";
+  [
+    { name: "Fake probability", value: `${pct}%`,           detail: isFake ? "Synthetic voice detected" : "No synthetic voice detected" },
+    { name: "Risk level",       value: data.risk_level,     detail: pct < 30 ? "Low likelihood of AI generation" : pct < 70 ? "Moderate — manual review advised" : "High likelihood of AI generation" },
+    { name: "Model",            value: "Random Forest",     detail: "MFCC + spectral feature extraction" },
+  ].forEach(({ name, value, detail }) => {
+    const box = document.createElement("article");
+    box.className = "feature-box";
+    box.innerHTML = `<span class="stat-label">${name}</span><strong>${value}</strong><p>${detail}</p>`;
+    featureGrid.appendChild(box);
+  });
+
+  audioBox.classList.add("active");
+  audioBox.innerHTML = `
+    <span class="stat-label">Audio</span>
+    <strong style="color:${ringColor}">${data.prediction.toUpperCase()}</strong>
+    <p>Fake prob ${pct}% · Risk: ${data.risk_level}</p>
+  `;
+}
+
+function mapBackendTextResult(data) {
+  const aiScore = data.ai_probability;
+  const sentences = data.sentences || [];
+  const sentenceScores = data.sentence_probabilities || [];
+  const suspiciousCount = sentenceScores.filter((s) => s >= 0.58).length;
+  const confidence = Math.min(0.97, 0.56 + Math.abs(aiScore - 0.5) * 0.88);
+  const verdict = aiScore >= 0.55 ? "Likely AI" : aiScore <= 0.4 ? "Likely Human" : "Borderline / Mixed";
+  let cue = "CSPF-Net probabilistic analysis";
+  if (aiScore > 0.7) cue = "High AI probability across document";
+  else if (aiScore < 0.3) cue = "Strong human writing patterns";
+  return {
+    verdict, aiScore, confidence, suspiciousCount, sentenceScores, sentences, cue,
+    features: [
+      { name: "Document AI probability", value: `${Math.round(aiScore * 100)}%`, detail: aiScore > 0.55 ? "Document skews AI-generated" : "Document skews human-written" },
+      { name: "AI sentence ratio", value: `${Math.round(data.ai_sentence_ratio * 100)}%`, detail: `${suspiciousCount} of ${sentences.length} sentences flagged AI-likely` },
+      { name: "Model", value: "CSPF-Net", detail: "Context-aware sentence probability fusion" }
+    ]
+  };
 }
 
 function revealCase(showAnswerOnly = false) {
@@ -286,8 +404,20 @@ nextBtn.addEventListener("click", () => {
   renderGameCase();
 });
 
-analyzeBtn.addEventListener("click", () => {
-  renderAnalysis(analyzeText(textInput.value));
+analyzeBtn.addEventListener("click", async () => {
+  const text = textInput.value.trim();
+  if (!text) return;
+  verdictTitle.textContent = "Analyzing…";
+  try {
+    const res = await fetch("/api/detect/text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    renderAnalysis(res.ok ? mapBackendTextResult(await res.json()) : analyzeText(text));
+  } catch {
+    renderAnalysis(analyzeText(text));
+  }
 });
 
 shuffleBtn.addEventListener("click", () => {
@@ -304,33 +434,262 @@ modeTabs.forEach((tab) => {
   tab.addEventListener("click", () => setMode(tab.dataset.mode));
 });
 
-imageInput.addEventListener("change", () => {
+imageInput.addEventListener("change", async () => {
   const file = imageInput.files?.[0];
   if (!file) return;
-  imageStatus.textContent = `Loaded ${file.name}. Frontend intake is ready; image forensics backend is not connected yet.`;
-  updateModalityBox(imageBox, "Image", `${file.name} accepted into the demo UI.`);
+
+  // Show inline preview
+  const uploadCard = document.querySelector('[data-panel="image"] .upload-card');
+  const old = uploadCard.querySelector("img");
+  if (old) old.remove();
+  const preview = document.createElement("img");
+  preview.src = URL.createObjectURL(file);
+  preview.style.cssText = "width:100%;border-radius:12px;margin-bottom:12px;max-height:220px;object-fit:cover;";
+  uploadCard.prepend(preview);
+
+  imageStatus.textContent = `Analyzing ${file.name}…`;
+  updateModalityBox(imageBox, "Image", "Running EfficientNet-B7…");
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const res = await fetch("/api/detect/image", { method: "POST", body: fd });
+    if (res.ok) {
+      renderImageResult(await res.json());
+      imageStatus.textContent = `${file.name} — analysis complete.`;
+    } else {
+      const err = await res.json();
+      imageStatus.textContent = `Error: ${err.detail}`;
+      updateModalityBox(imageBox, "Image", `Error: ${err.detail}`);
+    }
+  } catch {
+    imageStatus.textContent = `${file.name} loaded (backend not reachable — start the server first).`;
+    updateModalityBox(imageBox, "Image", `${file.name} accepted. Start backend to analyze.`);
+  }
 });
 
-audioInput.addEventListener("change", () => {
+audioInput.addEventListener("change", async () => {
   const file = audioInput.files?.[0];
   if (!file) return;
-  audioStatus.textContent = `Loaded ${file.name}. Frontend intake is ready; audio detection backend is not connected yet.`;
-  updateModalityBox(audioBox, "Audio", `${file.name} accepted into the demo UI.`);
+  audioStatus.textContent = `Analyzing ${file.name}…`;
+  updateModalityBox(audioBox, "Audio", "Running speech detector…");
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const res = await fetch("/api/detect/audio", { method: "POST", body: fd });
+    if (res.ok) {
+      renderAudioResult(await res.json());
+      audioStatus.textContent = `${file.name} — analysis complete.`;
+    } else {
+      const err = await res.json();
+      audioStatus.textContent = `Model not loaded: ${err.detail.split(".")[0]}.`;
+      updateModalityBox(audioBox, "Audio", "Model not loaded — run train_random_forest.py first.");
+    }
+  } catch {
+    audioStatus.textContent = `${file.name} loaded (backend not reachable — start the server first).`;
+    updateModalityBox(audioBox, "Audio", `${file.name} accepted. Start backend to analyze.`);
+  }
 });
 
-videoInput.addEventListener("change", () => {
+videoInput.addEventListener("change", async () => {
   const file = videoInput.files?.[0];
   if (!file) return;
-  inspectVideoSource(file.name);
+  videoStatus.textContent = `Uploading ${file.name}… this may take a moment.`;
+  updateModalityBox(videoBox, "Video", "Uploading…");
+  updateDecompositionBox(frameBox, "Frame Track", "Analyzing…", "Extracting keyframes…");
+  updateDecompositionBox(voiceBox, "Audio Track", "Analyzing…", "Separating audio…");
+  updateDecompositionBox(subtitleBox, "Subtitle Track", "Analyzing…", "Running ASR…");
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const res = await fetch("/api/detect/video", { method: "POST", body: fd });
+    if (!res.ok) {
+      videoStatus.textContent = `Server error analyzing ${file.name}.`;
+      return;
+    }
+    const data = await res.json();
+    const pct = data.fused_score != null ? Math.round(data.fused_score * 100) : null;
+    videoStatus.textContent = `${file.name} — ${data.final_label}${pct != null ? ` (${pct}% AI score)` : ""}.`;
+    videoBox.classList.add("active");
+    videoBox.innerHTML = `
+      <span class="stat-label">Video</span>
+      <strong>${data.final_label}</strong>
+      <p>${pct != null ? `Fused AI score: ${pct}%` : "No score available"}</p>
+    `;
+    const img = data.modalities?.image;
+    if (img?.error) {
+      updateDecompositionBox(frameBox, "Frame Track", "Error", img.error.slice(0, 80));
+    } else if (img) {
+      updateDecompositionBox(frameBox, "Frame Track", `${img.label} (${Math.round(img.fake_prob * 100)}%)`, `${img.frames_analyzed} frames analyzed · fake prob ${Math.round(img.fake_prob * 100)}%`);
+    }
+    const aud = data.modalities?.audio;
+    if (aud?.error) {
+      updateDecompositionBox(voiceBox, "Audio Track", "Model Not Loaded", aud.error.split(".")[0]);
+    } else if (aud) {
+      updateDecompositionBox(voiceBox, "Audio Track", `${aud.prediction.toUpperCase()} (${Math.round(aud.prob_fake * 100)}%)`, `Risk: ${aud.risk_level}`);
+    }
+    const txt = data.modalities?.text;
+    if (txt?.error) {
+      updateDecompositionBox(subtitleBox, "Subtitle Track", "Not Available", txt.error.split(".")[0]);
+    } else if (txt) {
+      const snippet = txt.transcript ? `"${txt.transcript.slice(0, 60)}…"` : "";
+      updateDecompositionBox(subtitleBox, "Subtitle Track", `${txt.label} (${Math.round(txt.ai_probability * 100)}%)`, snippet);
+    }
+  } catch {
+    videoStatus.textContent = `${file.name} loaded (backend not reachable — start the server first).`;
+    inspectVideoSource(file.name);
+  }
 });
+
+function renderVideoResult(data) {
+  const pct = data.fused_score != null ? Math.round(data.fused_score * 100) : null;
+  const isFake = data.final_label?.includes("FAKE") || data.final_label?.includes("AI");
+  const ringColor = isFake ? "var(--bad)" : "var(--good)";
+
+  verdictTitle.textContent = data.final_label || "Unknown";
+  scoreValue.textContent = pct != null ? `${pct}%` : "—";
+  confidenceValue.textContent = pct != null ? `${pct}%` : "—";
+  ratioValue.textContent = "3 tracks";
+  cueValue.textContent = "Frame + Audio + Transcript";
+  if (pct != null) {
+    meterFill.style.width = `${pct}%`;
+    scoreRing.style.background = `conic-gradient(${ringColor} 0deg, ${ringColor} ${pct * 3.6}deg, rgba(255,255,255,0.08) ${pct * 3.6}deg)`;
+  }
+  sentenceList.innerHTML = "";
+
+  featureGrid.innerHTML = "";
+  const img = data.modalities?.image;
+  const aud = data.modalities?.audio;
+  const txt = data.modalities?.text;
+  [
+    {
+      name: "Frame track",
+      value: img?.error ? "Error" : img ? `${Math.round(img.fake_prob * 100)}% fake` : "—",
+      detail: img?.error ? img.error.slice(0, 60) : img ? `${img.frames_analyzed} frames · EfficientNet-B7` : "Not analyzed"
+    },
+    {
+      name: "Audio track",
+      value: aud?.error ? "Error" : aud ? `${Math.round(aud.prob_fake * 100)}% fake` : "—",
+      detail: aud?.error ? aud.error.split(".")[0] : aud ? `Risk: ${aud.risk_level} · Random Forest` : "Not analyzed"
+    },
+    {
+      name: "Transcript track",
+      value: txt?.error ? "Error" : txt ? `${Math.round(txt.ai_probability * 100)}% AI` : "—",
+      detail: txt?.error ? txt.error.split(".")[0] : txt?.transcript ? `"${txt.transcript.slice(0, 50)}…"` : "No speech"
+    },
+  ].forEach(({ name, value, detail }) => {
+    const box = document.createElement("article");
+    box.className = "feature-box";
+    box.innerHTML = `<span class="stat-label">${name}</span><strong>${value}</strong><p>${detail}</p>`;
+    featureGrid.appendChild(box);
+  });
+
+  videoBox.classList.add("active");
+  videoBox.innerHTML = `
+    <span class="stat-label">Video</span>
+    <strong style="color:${ringColor}">${data.final_label}</strong>
+    <p>${pct != null ? `Fused AI score: ${pct}%` : "No score available"}</p>
+  `;
+
+  if (img?.error) {
+    updateDecompositionBox(frameBox, "Frame Track", "Error", img.error.slice(0, 80));
+  } else if (img) {
+    updateDecompositionBox(frameBox, "Frame Track", `${img.label} (${Math.round(img.fake_prob * 100)}%)`, `${img.frames_analyzed} frames · fake prob ${Math.round(img.fake_prob * 100)}%`);
+  }
+  if (aud?.error) {
+    updateDecompositionBox(voiceBox, "Audio Track", "Model Not Loaded", aud.error.split(".")[0]);
+  } else if (aud) {
+    updateDecompositionBox(voiceBox, "Audio Track", `${aud.prediction.toUpperCase()} (${Math.round(aud.prob_fake * 100)}%)`, `Risk: ${aud.risk_level}`);
+  }
+  if (txt?.error) {
+    updateDecompositionBox(subtitleBox, "Subtitle Track", "Not Available", txt.error.split(".")[0]);
+  } else if (txt) {
+    const snippet = txt.transcript ? `"${txt.transcript.slice(0, 60)}…"` : "No speech detected";
+    updateDecompositionBox(subtitleBox, "Subtitle Track", `${txt.label} (${Math.round(txt.ai_probability * 100)}%)`, snippet);
+  }
+}
+
+let _activeVideoStream = null;
+
+function setVideoAnalyzing(active) {
+  inspectVideoBtn.disabled = active;
+  inspectVideoBtn.textContent = active ? "Analyzing…" : "Inspect Video Link";
+}
+
+function applyVideoStepToUI(step, msg) {
+  const frameSteps = new Set(["download", "downloaded", "frames", "frames_analyze", "frames_done", "frames_error"]);
+  const audioSteps = new Set(["audio", "audio_analyze", "audio_done", "audio_error"]);
+  const textSteps  = new Set(["asr", "text_analyze", "text_done", "text_error"]);
+
+  videoStatus.textContent = msg;
+
+  if (frameSteps.has(step)) {
+    const status = step.endsWith("_done") ? "Done ✓" : step.endsWith("_error") ? "Error" : "Running…";
+    updateDecompositionBox(frameBox, "Frame Track", status, msg);
+  }
+  if (audioSteps.has(step)) {
+    const status = step.endsWith("_done") ? "Done ✓" : step.endsWith("_error") ? "Error" : "Running…";
+    updateDecompositionBox(voiceBox, "Audio Track", status, msg);
+  }
+  if (textSteps.has(step)) {
+    const status = step.endsWith("_done") ? "Done ✓" : step.endsWith("_error") ? "Error" : "Running…";
+    updateDecompositionBox(subtitleBox, "Subtitle Track", status, msg);
+  }
+}
 
 inspectVideoBtn.addEventListener("click", () => {
   const url = videoUrlInput.value.trim();
   if (!url) {
-    videoStatus.textContent = "Paste a Xiaohongshu video URL first. The demo accepts a link and then shows the decomposition pipeline.";
+    videoStatus.textContent = "Paste a video URL first (YouTube, YouTube Shorts, etc.).";
     return;
   }
-  inspectVideoSource(url);
+
+  if (_activeVideoStream) {
+    _activeVideoStream.close();
+    _activeVideoStream = null;
+  }
+
+  setVideoAnalyzing(true);
+  videoStatus.textContent = "连接后端，准备分析…";
+  updateDecompositionBox(frameBox, "Frame Track", "Waiting…", "等待分析开始");
+  updateDecompositionBox(voiceBox, "Audio Track", "Waiting…", "等待分析开始");
+  updateDecompositionBox(subtitleBox, "Subtitle Track", "Waiting…", "等待分析开始");
+
+  const es = new EventSource(`/api/detect/video-url/stream?url=${encodeURIComponent(url)}`);
+  _activeVideoStream = es;
+
+  es.onmessage = (event) => {
+    let data;
+    try { data = JSON.parse(event.data); } catch { return; }
+
+    applyVideoStepToUI(data.step, data.msg);
+
+    if (data.step === "complete") {
+      es.close();
+      _activeVideoStream = null;
+      setVideoAnalyzing(false);
+      if (data.result) {
+        renderVideoResult(data.result);
+        const pct = data.result.fused_score != null ? Math.round(data.result.fused_score * 100) : null;
+        videoStatus.textContent = `分析完成 — ${data.result.final_label}${pct != null ? `（综合 AI 得分 ${pct}%）` : ""}`;
+      }
+    }
+
+    if (data.step === "error") {
+      es.close();
+      _activeVideoStream = null;
+      setVideoAnalyzing(false);
+      videoStatus.textContent = `错误: ${data.msg}`;
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    _activeVideoStream = null;
+    setVideoAnalyzing(false);
+    if (videoStatus.textContent.startsWith("连接")) {
+      videoStatus.textContent = "后端不可达 — 请先启动服务器。";
+    }
+  };
 });
 
 setSample("human");

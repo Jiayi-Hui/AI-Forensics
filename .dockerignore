@@ -1,0 +1,24 @@
+# exclude training data and unused weights
+data/
+results/
+heatmaps/
+test_images/
+test_images_cifake/
+
+# exclude the two extra weights (only deepfake.pth is copied in Dockerfile)
+weights/efficientnet_b7_cifake_finetuned.pth
+weights/efficientnet_b7_mixed.pth
+
+# exclude git history and dev artefacts
+.git/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.docx
+*.zip
+
+# exclude old Streamlit app (not needed in backend container)
+src/
+app.py
+huggingface/
